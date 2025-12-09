@@ -8,6 +8,7 @@ SDR画像をPQ HDR (16-bit) PNGに変換するツール
 - 輝度増幅オプション (--gain)
 - 円周外側を明るくするオプション (--radial-boost)
 - マスク画像で部分的に輝度を上げるオプション (--mask)
+- ノイズリダクション前処理 (--denoise) - アニメ絵向け
 - ICCプロファイル埋め込み（flashbang-hdr.pngから抽出）
 
 Usage:
@@ -15,6 +16,7 @@ Usage:
     python hdr_convert.py input.jpg output.png --gain 1.5
     python hdr_convert.py input.png output.png --radial-boost 100 --radial-gain 3.0
     python hdr_convert.py input.png output.png --mask mask.png --mask-gain 100
+    python hdr_convert.py input.png output.png --denoise
 """
 
 import argparse
@@ -53,6 +55,45 @@ def extract_icc_profile(png_path):
             if chunk_type == 'IEND':
                 break
     return None
+
+
+def denoise_anime(img, strength=7):
+    """
+    アニメ絵向けノイズリダクション（バイラテラルフィルタ）
+
+    エッジを保持しながら平坦な領域のノイズを除去。
+    アニメ絵の特徴（シャープなエッジ、均一な色面）に適している。
+
+    Args:
+        img: PIL Image (RGB)
+        strength: フィルタ強度 (1-10, デフォルト: 7)
+
+    Returns:
+        ノイズ除去後のPIL Image
+    """
+    try:
+        import cv2
+        # PIL → OpenCV (RGB → BGR)
+        img_cv = np.array(img)[:, :, ::-1]
+
+        # バイラテラルフィルタ
+        # d: フィルタサイズ（-1で自動）
+        # sigmaColor: 色空間でのフィルタ強度
+        # sigmaSpace: 座標空間でのフィルタ強度
+        d = strength
+        sigma_color = strength * 10
+        sigma_space = strength * 10
+
+        filtered = cv2.bilateralFilter(img_cv, d, sigma_color, sigma_space)
+
+        # OpenCV → PIL (BGR → RGB)
+        return Image.fromarray(filtered[:, :, ::-1])
+
+    except ImportError:
+        # OpenCVがない場合はPILのフィルタで代用
+        from PIL import ImageFilter
+        # MedianFilterでノイズ除去（バイラテラルほど効果的ではない）
+        return img.filter(ImageFilter.MedianFilter(size=3))
 
 
 def srgb_to_linear(x):
@@ -195,6 +236,8 @@ def convert_to_hdr(
     falloff=50,
     mask_path=None,
     mask_gain=100.0,
+    denoise=False,
+    denoise_strength=7,
     reference_hdr=None
 ):
     """
@@ -210,6 +253,8 @@ def convert_to_hdr(
         falloff: 円のエッジのグラデーション幅（ピクセル）
         mask_path: マスク画像パス（グレースケール）。白い部分の輝度を上げる
         mask_gain: マスクの白い部分の輝度増幅値
+        denoise: ノイズリダクションを適用するか
+        denoise_strength: ノイズリダクションの強度 (1-10)
         reference_hdr: ICCプロファイルを抽出するHDR画像パス
     """
     print(f"{'='*50}")
@@ -233,6 +278,12 @@ def convert_to_hdr(
     print(f"Input:       {input_path}")
     print(f"Size:        {width} x {height}")
     print(f"Mode:        {original_mode}")
+
+    # ノイズリダクション（前処理）
+    if denoise:
+        print(f"Denoise:     strength={denoise_strength}")
+        img_rgb = denoise_anime(img_rgb, strength=denoise_strength)
+
     print(f"Gain:        {gain}")
     print(f"Nits:        {nits}")
 
@@ -367,6 +418,19 @@ def main():
         help='マスクの白い部分の輝度増幅値 (デフォルト: 100)'
     )
     parser.add_argument(
+        '--denoise', '-d',
+        action='store_true',
+        help='ノイズリダクションを適用（アニメ絵向け）'
+    )
+    parser.add_argument(
+        '--denoise-strength', '-ds',
+        type=int,
+        default=7,
+        choices=range(1, 11),
+        metavar='1-10',
+        help='ノイズリダクションの強度 (1-10, デフォルト: 7)'
+    )
+    parser.add_argument(
         '--reference', '-ref',
         type=str,
         default=None,
@@ -397,6 +461,8 @@ def main():
         falloff=args.falloff,
         mask_path=args.mask,
         mask_gain=args.mask_gain,
+        denoise=args.denoise,
+        denoise_strength=args.denoise_strength,
         reference_hdr=reference
     )
 
