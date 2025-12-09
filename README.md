@@ -1,85 +1,87 @@
 # HDR PNG Converter
 
-SDR画像をPQ HDR (16-bit) PNGに変換するPythonツール
+[日本語版 README](README_ja.md)
 
-## 機能
+A Python tool to convert SDR images to PQ HDR (16-bit) PNG format.
 
-- **SDR → HDR (PQ) 変換**: sRGBからPQ (SMPTE ST 2084) への変換
-- **輝度増幅**: 全体の輝度を調整
-- **円形ブースト**: 円の外側の輝度を上げる（アイコン用途など）
-- **マスク画像対応**: グレースケールマスクで部分的に輝度を上げる
-- **ノイズリダクション**: アニメ絵向けバイラテラルフィルタ
-- **ICCプロファイル埋め込み**: PQ HDR ICCプロファイルを自動埋め込み
+## Features
 
-## 必要環境
+- **SDR → HDR (PQ) Conversion**: Convert from sRGB to PQ (SMPTE ST 2084)
+- **Brightness Amplification**: Adjust overall luminance
+- **Radial Boost**: Increase luminance outside a circular area (for icons, etc.)
+- **Mask Image Support**: Selectively increase luminance using grayscale masks
+- **Noise Reduction**: Bilateral filter optimized for anime-style images
+- **ICC Profile Embedding**: Automatic PQ HDR ICC profile embedding
+
+## Requirements
 
 ```bash
 pip install numpy pillow
-pip install opencv-python  # ノイズリダクション用（オプション）
+pip install opencv-python  # Optional, for noise reduction
 ```
 
-## 使い方
+## Usage
 
-### 基本的な変換
+### Basic Conversion
 
 ```bash
-# SDR白を10000nitsにマッピング（最大輝度）
+# Map SDR white to 10000 nits (maximum luminance)
 python hdr_convert.py input.jpg output.png
 
-# SDR白を100nitsにマッピング（控えめなHDR）
+# Map SDR white to 100 nits (moderate HDR)
 python hdr_convert.py input.jpg output.png --nits 100
 ```
 
-### 輝度増幅
+### Brightness Amplification
 
 ```bash
-# 全体の輝度を1.5倍に
+# Increase overall brightness by 1.5x
 python hdr_convert.py input.jpg output.png --gain 1.5
 ```
 
-### 円形ブースト（アイコン用途）
+### Radial Boost (for Icons)
 
-円の内側は通常輝度、外側をHDRで明るくする：
+Keep the center at normal luminance while making the outside HDR-bright:
 
 ```bash
-# 半径140pxの円の外側を100倍（10000nits）に
+# Make outside of 140px radius circle 100x brighter (10000 nits)
 python hdr_convert.py input.jpg output.png --nits 100 -r 140 -rg 100 -f 30
 ```
 
-| オプション | 説明 |
-|-----------|------|
-| `-r`, `--radial-boost` | 円の半径（ピクセル） |
-| `-rg`, `--radial-gain` | 外側の輝度倍率 |
-| `-f`, `--falloff` | 境界のグラデーション幅（ピクセル） |
+| Option | Description |
+|--------|-------------|
+| `-r`, `--radial-boost` | Circle radius (pixels) |
+| `-rg`, `--radial-gain` | Outside luminance multiplier |
+| `-f`, `--falloff` | Edge gradient width (pixels) |
 
-### マスク画像で部分的に明るくする
+### Selective Brightness with Mask Images
 
-グレースケールのマスク画像を使用し、白い部分の輝度を上げる：
+Use a grayscale mask image to increase luminance in white areas:
 
 ```bash
 python hdr_convert.py input.jpg output.png --nits 100 --mask mask.png --mask-gain 100
 ```
 
-- **黒 (0)**: 輝度変更なし
-- **白 (255)**: mask-gain倍の輝度
-- **グレー**: 中間値（グラデーション対応）
+- **Black (0)**: No luminance change
+- **White (255)**: mask-gain multiplier applied
+- **Gray**: Intermediate values (gradient support)
 
-### ノイズリダクション（アニメ絵向け）
+### Noise Reduction (for Anime Images)
 
 ```bash
-# デフォルト強度（7）でノイズ除去
+# Apply noise reduction with default strength (7)
 python hdr_convert.py input.jpg output.png --denoise
 
-# 強度を調整（1-10）
+# Adjust strength (1-10)
 python hdr_convert.py input.jpg output.png --denoise --denoise-strength 5
 ```
 
-バイラテラルフィルタを使用し、エッジを保持しながら平坦な領域のノイズを除去します。
+Uses bilateral filter to remove noise in flat areas while preserving edges.
 
-### 組み合わせ例
+### Combined Example
 
 ```bash
-# ノイズ除去 + マスク + 円形ブースト
+# Noise reduction + Mask + Radial boost
 python hdr_convert.py input.jpg output.png \
   --nits 100 \
   --denoise \
@@ -87,36 +89,36 @@ python hdr_convert.py input.jpg output.png \
   -r 130 -rg 10 -f 30
 ```
 
-## オプション一覧
+## Options
 
-| オプション | 短縮 | デフォルト | 説明 |
-|-----------|------|-----------|------|
-| `--gain` | `-g` | 1.0 | 全体の輝度増幅値 |
-| `--nits` | `-n` | 10000 | SDR白をマッピングする輝度 (cd/m²) |
-| `--radial-boost` | `-r` | なし | 円の半径（ピクセル） |
-| `--radial-gain` | `-rg` | 2.0 | 円の外側の輝度倍率 |
-| `--falloff` | `-f` | 50 | 境界のグラデーション幅（ピクセル） |
-| `--mask` | `-m` | なし | マスク画像（グレースケール） |
-| `--mask-gain` | `-mg` | 100 | マスクの白い部分の輝度倍率 |
-| `--denoise` | `-d` | なし | ノイズリダクションを有効化 |
-| `--denoise-strength` | `-ds` | 7 | ノイズリダクション強度 (1-10) |
-| `--reference` | `-ref` | flashbang-hdr.png | ICCプロファイル参照元 |
+| Option | Short | Default | Description |
+|--------|-------|---------|-------------|
+| `--gain` | `-g` | 1.0 | Overall brightness multiplier |
+| `--nits` | `-n` | 10000 | Luminance to map SDR white to (cd/m²) |
+| `--radial-boost` | `-r` | None | Circle radius (pixels) |
+| `--radial-gain` | `-rg` | 2.0 | Outside luminance multiplier |
+| `--falloff` | `-f` | 50 | Edge gradient width (pixels) |
+| `--mask` | `-m` | None | Mask image (grayscale) |
+| `--mask-gain` | `-mg` | 100 | White area luminance multiplier |
+| `--denoise` | `-d` | None | Enable noise reduction |
+| `--denoise-strength` | `-ds` | 7 | Noise reduction strength (1-10) |
+| `--reference` | `-ref` | flashbang-hdr.png | ICC profile source |
 
-## 出力仕様
+## Output Specifications
 
-- **フォーマット**: PNG
-- **ビット深度**: 16-bit RGB (48bit/pixel)
-- **転送特性**: PQ (SMPTE ST 2084)
-- **ICCプロファイル**: PQ HDR（iCCPチャンク埋め込み）
+- **Format**: PNG
+- **Bit Depth**: 16-bit RGB (48 bits/pixel)
+- **Transfer Function**: PQ (SMPTE ST 2084)
+- **ICC Profile**: PQ HDR (embedded in iCCP chunk)
 
-## 解析ツール
+## Analysis Tool
 
-`png_hdr_analyzer.py` でHDR PNGのメタデータを解析できます：
+Use `png_hdr_analyzer.py` to analyze HDR PNG metadata:
 
 ```bash
 python png_hdr_analyzer.py output.png
 ```
 
-## ライセンス
+## License
 
 MIT License
